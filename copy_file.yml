@@ -1,0 +1,14 @@
+---
+- name: Check if a file is available
+  hosts: tag_Os_ubuntu  # Define the target server or group in your inventory file
+  gather_facts: no  # We don't need to gather facts for this task
+
+  tasks:
+    - name: Check if the file exists
+      stat:
+        path: /home/ubuntu/ansible/ansibleplaybook/copy_file.yml
+      register: file_status
+
+    - name: Display the result
+      debug:
+        msg: "The file exists: {{ file_status.stat.exists }}"

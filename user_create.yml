@@ -1,0 +1,21 @@
+---
+- name: create ansible user in all server
+  hosts: tag_Os_ubuntu
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: user will create
+      ansible.builtin.user:
+        name: ansible
+        shell: /bin/bash
+        group: root
+        uid: 1011
+        append: yes
+    - name: display the user
+      shell: cat /etc/passwd | grep ansible
+      register: demo
+
+    - name: display the user id
+      debug:
+        var: demo

@@ -1,0 +1,14 @@
+---
+- name: checking up time for all servers
+  hosts: tag_Os_ubuntu
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: take uptime fo the instances
+      command: netstat -netpl
+      register: result
+
+    - name: print the port running all server
+      debug:
+        var: result

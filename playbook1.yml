@@ -1,0 +1,107 @@
+---
+- name: create vpc full structure
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: creating Jump server SG
+      amazon.aws.ec2_security_group:
+        name: jump-server-sg
+        description: Jump_server_sg
+        vpc_id: vpc-00a5e1023f52a934e
+        region: us-east-1
+        rules:
+          - proto: tcp
+            ports:
+            - 22
+            - 80
+            - 8080
+            cidr_ip: 0.0.0.0/0
+      register: ansible_sg_result
+
+    # - name: display security group
+    #   debug:
+    #     var: ansible_sg_result
+    
+    - name: ec2 creation = Jump_Server instance
+      amazon.aws.ec2_instance:
+        name: "demo_testing"
+        key_name: "AWS_FREE_PAIR"
+        vpc_subnet_id: subnet-0650edd64f9fd3abe
+        instance_type: t2.micro
+        security_group: "{{ ansible_sg_result.group_id }}"
+        volumes:    
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 8
+              volume_type: gp3
+        network:
+          assign_public_ip: true
+        state: running
+        tags:
+          Name: demo
+          os: ubuntu
+        image_id: ami-053b0d53c279acc90
+      register: public_instance
+    
+    - name: display
+      debug:
+        var: public_instance.instances[0].public_ip_address
+    
+    - name: Add the new EC2 instance to the hosts inventory
+      add_host:
+        hostname: "{{ item }}"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+        groupname: ec2
+      with_items: "{{ public_instance.instances[0].public_ip_address }}"
+
+    - name: Wait for SSH to become available on the new instance
+      wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+      with_items: "{{ public_instance.instances[0].public_ip_address }}"
+    
+    
+- name: Install Apache2
+  hosts: ec2
+  become: yes
+  remote_user: ubuntu
+
+  tasks:    
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Apache2
+      apt:
+        name: apache2
+        state: present
+    
+    - name: change the port
+      lineinfile:
+        path: /etc/apache2/ports.conf
+        regexp: '^Listen '
+        line: 'Listen 8080'
+
+    - name: Start Apache2 service
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+    
+    - name: Remove a old Index file
+      file:
+        path: /var/wwww/html/index.html
+        state: absent
+    
+    - name: Start Apache2 service
+      service:
+        name: apache2
+        state: restarted
+        enabled: yes
+
+
+
+ 

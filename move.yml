@@ -1,0 +1,15 @@
+---
+- name: Move a directory to another server
+  hosts: tag_Os_ubuntu  # Define the source server in your inventory file
+  become: yes  # Run tasks with sudo or as root if needed
+
+  tasks:
+    - name: Remove old index file
+      file:
+        path: /var/www/html/index.nginx-debian.html
+        state: absent
+    - name: Synchronize the directory
+      synchronize:
+        src: /home/ubuntu/ansible/service_status.csv
+        dest: /var/www/html/
+        mode: pull  # To copy from the source server to the control machine

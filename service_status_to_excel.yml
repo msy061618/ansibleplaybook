@@ -1,0 +1,28 @@
+---
+- name: Check Specific Services
+  hosts: tag_Os_ubuntu
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Check ngix Service 1
+      ansible.builtin.systemd:
+        name: nginx.service
+        state: "started"
+      register: service1_status
+
+    - name: Check ssh Service 2
+      ansible.builtin.systemd:
+        name: ssh.service
+        state: "started"
+      register: service2_status
+
+    - name: Check apache2 Service 3
+      ansible.builtin.systemd:
+        name: systemd-sysctl.service
+        state: "started"
+      register: service3_status
+
+    - name: Display Service Status
+      debug:
+        msg: "Service 1 is {{ 'running' if service1_status.changed else 'stopped' }}, Service 2 is {{ 'running' if service2_status.changed else 'stopped' }}, Service 3 is {{ 'running' if service3_status.changed else 'stopped' }}"

@@ -1,0 +1,10 @@
+---
+- name: Restart Nginx service
+  hosts: tag_Os_ubuntu  # Define the target server or group in your inventory file
+  become: yes  # Run tasks with sudo or as root if needed
+
+  tasks:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted

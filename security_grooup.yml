@@ -1,0 +1,55 @@
+---
+- name: create vpc full structure
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: creating Jump server SG
+      amazon.aws.ec2_security_group:
+        name: jump-server-sg
+        description: Jump_server_sg
+        vpc_id: vpc-00a5e1023f52a934e
+        region: us-east-1
+        rules:
+          - proto: tcp
+            ports:
+            - 80
+            - 22
+            - 8080
+            cidr_ip: 0.0.0.0/0
+      register: ansible_sg_result
+
+    - name: display security group
+      debug:
+        var: ansible_sg_result
+    
+    - name: creating nat security group
+      amazon.aws.ec2_security_group:
+        name: nat-server-sg
+        description: Nat-server-sg
+        vpc_id: vpc-00a5e1023f52a934e
+        region: us-east-1
+        rules:
+          - proto: all
+            group_id: "{{ ansible_sg_result.group_id }}"
+      register: nat_sg_result
+
+    - name: screening nat sg
+      debug:
+        var: nat_sg_result.group_name
+
+    - name: Private security Group creating
+      amazon.aws.ec2_security_group:
+        name: private_sg
+        description: sg-private
+        vpc_id: vpc-00a5e1023f52a934e
+        region: us-east-1
+        rules:
+          - proto: tcp
+            ports:
+              - 80
+              - 22
+              - 8080
+            group_id: "{{ nat_sg_result.group_id }}"
+      register: private_sg_result

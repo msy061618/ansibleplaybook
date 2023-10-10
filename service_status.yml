@@ -1,0 +1,16 @@
+---
+- name: Check if a Service is Running
+  hosts: tag_Os_ubuntu
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Check if Service is Running
+      systemd:
+        name: nginx.service
+        state: "started"
+      register: service_status
+
+    - name: Display Service Status
+      debug:
+        var: service_status

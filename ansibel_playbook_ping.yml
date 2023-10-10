@@ -1,0 +1,8 @@
+---
+- name: ping all hosts
+  hosts: tag_Os_ubuntu
+  gather_facts: no
+  tasks:
+    - name: Ping ubuntu user
+      remote_user: ubuntu
+      command: whoami

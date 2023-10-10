@@ -1,0 +1,35 @@
+---
+- name: Create EC2 instance with Nginx
+  hosts: localhost
+  gather_facts: yes
+  
+  tasks:
+    - name: start an instance with a public IP address
+      amazon.aws.ec2_instance:
+        name: "public-compute-instance"
+        key_name: "AWS_FREE_PAIR"
+        vpc_subnet_id: subnet-06a438c50cb2fa0e7
+        instance_type: t2.micro
+        security_group: all_traffic
+        network:
+          assign_public_ip: true
+        image_id: ami-0bb4c991fa89d4b9b
+        tags:
+          os: ec2_user
+      register: ec2_instance
+
+    - name: screening ec2 creation
+      debug:
+        var: ec2_instance.instances[0].network_interfaces[0].private_ip_address
+    
+    - name: Wait for SSH to become available
+      wait_for:
+        host: "{{ ec2_instance.instances[0].network_interfaces[0].private_ip_address }}"
+        port: 22
+        delay: 20
+        timeout: 320
+      delegate_to: localhost
+    - name: Add the new instance to host group
+      add_host:
+        hostname={{ ec2_instance.instances[0].network_interfaces[0].private_ip_address }}
+        groupname=launched

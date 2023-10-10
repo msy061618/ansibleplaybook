@@ -1,0 +1,17 @@
+---
+- name: Taking service status from all servers
+  hosts: tag_Os_ubuntu
+  gather_facts: yes
+  become: yes
+
+  tasks:
+
+    - name: Gathering service facts
+      service_facts:
+    
+
+    - name: save service facts as json
+      copy:        
+        content: "{{ hostvars | json_query('*.ansible_facts.services') | to_nice_json }}"
+        dest: /home/ubuntu/output/service_facts.json
+      delegate_to: localhost

@@ -1,0 +1,14 @@
+---
+- name: Check running services
+  hosts: tag_Os_ubuntu
+  gather_facts: yes  # This gathers facts about the system
+
+  tasks:
+    - name: Get the list of running services
+      command: systemctl list-units --type=service --state=running
+      register: running_services
+      changed_when: false  # We don't consider it a change if the command succeeds
+
+    - name: Display the list of running services
+      debug:
+        var: running_services.stdout_lines

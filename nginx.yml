@@ -1,0 +1,49 @@
+---
+- name: Install and configure Nginx
+  hosts: tag_Os_ubuntu  # Define the target servers or group in your inventory file
+  become: yes  # Run tasks with sudo or as root
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"  # For Debian/Ubuntu-based systems
+      tags:
+        - update
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+      when: ansible_os_family == "Debian"  # For Debian/Ubuntu-based systems
+      tags:
+        - install
+
+    - name: Start Nginx and enable it at boot
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags:
+        - start
+
+    - name: Copy a custom index.html file
+      copy:
+        src: ansible/html/*
+        dest: /var/www/html/
+      tags:
+        - configure
+
+    - name: Allow HTTP traffic through the firewall (if needed)
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+      tags:
+        - configure
+
+  handlers:
+    - name: Restart Nginx if configuration changes
+      service:
+        name: nginx
+        state: restarted

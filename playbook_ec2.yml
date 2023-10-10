@@ -1,0 +1,20 @@
+---
+- name: Ec2_cretion using ansibleplaybook
+  hosts: tag_Os_ubuntu
+  gather_facts: no
+ 
+  tasks:
+    - name: Launch New ec2 Instance
+      amazon.aws.ec2_instance:
+        instance_type: t2.micro
+        image_id: ami-053b0d53c279acc90
+        count: 1
+        region: us-east-1
+        network:
+          assign_public_ip: true
+          security_group: all_traffic
+          vpc_subnet_id: subnet-06a438c50cb2fa0e7
+          state: present
+          tags:
+            Name: Node2
+            os: ubuntu

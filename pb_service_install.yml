@@ -1,0 +1,40 @@
+---
+- name: Check if a file is available
+  hosts: tag_Os_ubuntu  # Define the target server or group in your inventory file
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Install prerequisties
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - unzip
+        - curl
+
+    - name: Download Cloudwatch Agent from web
+      get_url:
+        url: "https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb"
+        dest: "/tmp/amazon-cloudwatch-agent.deb"
+      register: download_result
+    
+    - name: Install CloudWatch Agent
+      apt:
+        deb: "/tmp/amazon-cloudwatch-agent.deb"
+      when: download_result.changed
+
+    - name: Configure CloudWatch Agent
+      template:
+        src: /home/ansadmin/ansibleplaybook/amazon-cloudwatch-agent.json
+        dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+      notify: Restart CloudWatch Agent
+  
+  handlers:
+    - name: Restart CloudWatch Agent
+      service:
+        name: amazon-cloudwatch-agent
+        state: restarted
+
+
+        
