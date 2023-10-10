@@ -69,6 +69,8 @@
             gateway_id: "{{ igw_result.gateway_id }}"
           - dest: ::/0
             gateway_id: "{{ igw_result.gateway_id }}"
+          - dest: 172.31.80.0/20
+            gateway_id: pcx-0d54de6acad6dbb20
     
     - name: create private Route Table
       ec2_vpc_route_table:
@@ -79,18 +81,4 @@
         subnets:
           - "{{ private_subnet_result.subnet.id }}"
     
-    - name: Create Security Group for EC2 Instances
-      ec2_security_group:
-        name: ansible_sg
-        description: Security Group for EC2 Instances
-        vpc_id: "{{ vpc_id }}"
-        region: us-east-1
-        rules:
-          - proto: tcp
-            ports:
-              - 22  # SSH
-              - 80  # HTTP
-              - 443 # HTTPS
-            cidr_ip: 0.0.0.0/0
-      register: ec2_security_group1
     

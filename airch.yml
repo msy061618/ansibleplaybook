@@ -9,7 +9,7 @@
     - name: create a VPC
       ec2_vpc_net:
         name: Ansible_VPC
-        cidr_block: 10.20.10.0/24
+        cidr_block: 10.20.10.0/22
         region: us-east-1  # Specify your desired AWS region
         tags:
           Name: Ansible_VPC
@@ -24,13 +24,12 @@
       debug:
         var: vpc_result.vpc.id
     
-    - name: save VPC id to a file
-      copy:
-        content: "{{ vpc_result.vpc.id }}"
-        dest: /home/ansadmin/ansibleplaybook/output/vpc_id.txt
+    # - name: save VPC id to a file
+    #   copy:
+    #     content: "{{ vpc_result.vpc.id }}"
+    #     dest: /home/ansadmin/ansibleplaybook/output/vpc_id.txt
 
-
-    - name: Create public Subnet 1
+    - name: Create Public subnet az1
       ec2_vpc_subnet:
         state: present
         vpc_id: "{{ vpc_id }}"
@@ -40,27 +39,48 @@
         region: us-east-1  # Specify the same AWS region
         tags:
           Name: public_subnet_1
-      register: public_subnet_result
+      register: public_subnet_1_result
 
-    - name: save public Subnet id to a file
-      copy:
-        content: "{{ public_subnet_result.subnet.id }}"
-        dest: /home/ansadmin/ansibleplaybook/output/pub_sn_id.txt
+    # - name: save public Subnet id to a file
+    #   copy:
+    #     content: "{{ public_subnet_result.subnet.id }}"
+    #     dest: /home/ansadmin/ansibleplaybook/output/pub_sn_id.txt
 
-    - name: Create Private subnet
+    - name: Create Public subnet az2
       ec2_vpc_subnet:
         vpc_id: "{{ vpc_id }}"
         cidr: 10.20.10.128/25
         az: us-east-1b
         region: us-east-1  # Specify the same AWS region
         tags:
-          Name: private_subnet_1
-      register: private_subnet_result
+          Name: public_subnet_2
+      register: public_subnet_2_result
     
-    - name: save private Subnet id to a file
-      copy:
-        content: "{{ private_subnet_result.subnet.id }}"
-        dest: /home/ansadmin/ansibleplaybook/output/priv_sn_id.txt
+    # - name: save private Subnet id to a file
+    #   copy:
+    #     content: "{{ private_subnet_result.subnet.id }}"
+    #     dest: /home/ansadmin/ansibleplaybook/output/priv_sn_id.txt
+
+    - name: Create private subnet = az1
+      ec2_vpc_subnet:
+        vpc_id: "{{ vpc_id }}"
+        cidr: 10.20.11.0/25
+        az: us-east-1a
+        region: us-east-1  # Specify the same AWS region
+        tags:
+          Name: private_subnet_1
+      register: private_subnet_1_result
+    
+    - name: Create private subnet = az2
+      ec2_vpc_subnet:
+        vpc_id: "{{ vpc_id }}"
+        cidr: 10.20.11.128/25
+        az: us-east-1b
+        region: us-east-1  # Specify the same AWS region
+        tags:
+          Name: private_subnet_2
+      register: private_subnet_2_result
+
 
     - name: Create Internet Gateway
       ec2_vpc_igw:
@@ -68,7 +88,7 @@
         state: present
         region: us-east-1  # Specify the same AWS region
         tags:
-          Name: MyIGW
+          Name: project_igw
       register: igw_result
 
     - name: Display the IGW id
@@ -82,11 +102,10 @@
         tags:
           Name: Public_router
         subnets:
-          - "{{ public_subnet_result.subnet.id }}"
+          - "{{ public_subnet_1_result.subnet.id }}"
+          - "{{ public_subnet_2_result.subnet.id }}"
         routes:
           - dest: 0.0.0.0/0
-            gateway_id: "{{ igw_result.gateway_id }}"
-          - dest: ::/0
             gateway_id: "{{ igw_result.gateway_id }}"
     
     - name: creating Jump server SG
@@ -102,9 +121,9 @@
             cidr_ip: 0.0.0.0/0
       register: ansible_sg_result
 
-    - name: display security group
-      debug:
-        var: ansible_sg_result
+    # - name: display security group
+    #   debug:
+    #     var: ansible_sg_result
     
     - name: creating nat security group
       amazon.aws.ec2_security_group:
@@ -114,7 +133,7 @@
         region: us-east-1
         rules:
           - proto: all
-            group_id: "{{ ansible_sg_result.group_id }}"
+            cidr_ip: 0.0.0.0/0
       register: nat_sg_result
 
     - name: screening nat sg
@@ -134,13 +153,28 @@
               - 22
               - 8080
             group_id: "{{ nat_sg_result.group_id }}"
+            cidr_ip: 0.0.0.0/0            
       register: private_sg_result
     
+    - name: Load Balancer Security Group creating
+      elb_application_lb:
+        name: myalb_sg
+        description: myalb_sg
+        vpc_id: "{{ vpc_id }}"
+        region: us-east-1
+        rules:
+          - proto: tcp
+            ports:
+              - 80
+              - 443
+            cidr_ip: 0.0.0.0/0            
+      register: private_sg_result
+        
     - name: ec2 creation = Jump_Server instance
       amazon.aws.ec2_instance:
         name: "Jump_Server"
         key_name: "AWS_FREE_PAIR"
-        vpc_subnet_id: "{{ public_subnet_result.subnet.id }}"
+        vpc_subnet_id: "{{ public_subnet_1_result.subnet.id }}"
         instance_type: t2.micro
         security_group: "{{ ansible_sg_result.group_id }}"
         volumes:    
@@ -149,7 +183,7 @@
               volume_size: 8
               volume_type: gp3
         network:
-          assign_public_ip: true
+          assign_public_ip: true        
         tags:
           Name: Jump_Server
           os: ubuntu
@@ -160,7 +194,7 @@
       amazon.aws.ec2_instance:
         name: "nat_instance"
         key_name: "AWS_FREE_PAIR"
-        vpc_subnet_id: "{{ public_subnet_result.subnet.id }}"
+        vpc_subnet_id: "{{ public_subnet_1_result.subnet.id }}"
         instance_type: t2.micro
         security_group: "{{ nat_sg_result.group_id }}"
         state: running
@@ -177,7 +211,7 @@
       amazon.aws.ec2_instance:
         name: "private_instance"
         key_name: "AWS_FREE_PAIR"
-        vpc_subnet_id: "{{ private_subnet_result.subnet.id }}"
+        vpc_subnet_id: "{{ private_subnet_1_result.subnet.id }}"
         instance_type: t2.micro
         security_group: "{{ private_sg_result.group_id }}"
         # state: present
@@ -199,6 +233,24 @@
       debug:
         var: nat_instance_result.instance_ids[0]
     
+    - name: peering out vpc to project vpc
+      ec2_vpc_peer:
+        region: us-east-1
+        vpc_id: "{{ vpc_id }}"
+        peer_vpc_id: vpc-0146ded904a0b83e3
+        state: present
+        tags:
+          Name: localpeering default to project
+          Project: demo
+      register: vpc_peer
+    
+    - name: Accept local VPC peering request
+      community.aws.ec2_vpc_peer:
+        region: us-east-1
+        peering_id: "{{ vpc_peer.peering_id }}"
+        state: accept
+      register: action_peer
+        
     - name: Create the route table private
       ec2_vpc_route_table:
         vpc_id: "{{ vpc_id }}"
@@ -210,6 +262,8 @@
         routes:
           - dest: 0.0.0.0/0
             instance_id: "{{ nat_instance_result.instance_ids[0] }}"
+          - dest: 172.31.80.0/20
+            gateway_id: "{{ vpc_peer.peering_id }}"
       register: private_routed
 
     - name: change the source the destinations in nat server
@@ -219,9 +273,9 @@
           source_dest_check: false
       register: modify_ec2
     
-    - name: Display the modify ec2
-      debug:
-        var: modify_ec2
+    # - name: Display the modify ec2
+    #   debug:
+    #     var: modify_ec2
       
     - name: Add the new EC2 instance to the hosts inventory
       add_host:
@@ -230,15 +284,15 @@
         groupname: private_ec2
       with_items: "{{ private_instance_result.instances[0].private_ip_address }}"
 
-    # - name: Wait for SSH to become available on the new instance
-    #   remote_user: ubuntu
-    #   wait_for:
-    #     host: "{{ item }}"
-    #     port: 22
-    #     state: started
-    #   with_items: "{{ private_instance_result.instances[0].private_ip_address }}"
+    - name: Wait for SSH to become available on the new instance
+      remote_user: ubuntu
+      wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+      with_items: "{{ private_instance_result.instances[0].private_ip_address }}"
 
-- name: Install Apache2
+- name: Install Apache2 to private instance
   hosts: private_ec2
   become: yes
   remote_user: ubuntu
@@ -270,3 +324,9 @@
         name: apache2
         state: restarted
         enabled: yes
+    
+    - name: move the file
+      copy: 
+        src: /root/ansible/newrecord/*
+        dest: /var/www/html/
+        remote_src: false
